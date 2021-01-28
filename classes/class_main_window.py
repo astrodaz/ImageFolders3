@@ -58,10 +58,11 @@ class MainWindow(wx.Frame):
         # Add the bitmap buttons
         self.lstFolders = wx.ListBox(self.panel)
         bmp = wx.ArtProvider.GetBitmap(wx.ART_GO_UP, wx.ART_BUTTON, (16, 16))
-        up_id = wx.NewId()
-        self.btnFolderUp = wx.BitmapButton(self.panel, up_id, bitmap=bmp,)
+        self.up_id = wx.NewId()
+        self.btnFolderUp = wx.BitmapButton(self.panel, self.up_id, bitmap=bmp,)
         bmp = wx.ArtProvider.GetBitmap(wx.ART_GO_DOWN, wx.ART_BUTTON, (16, 16))
-        self.btnFolderDown = wx.BitmapButton(self.panel, wx.ID_ANY, bitmap=bmp)
+        self.down_id = wx.NewId()
+        self.btnFolderDown = wx.BitmapButton(self.panel, self.down_id, bitmap=bmp)
         bmp = wx.ArtProvider.GetBitmap(wx.ART_PLUS, wx.ART_BUTTON, (16, 16))
         add_id = wx.NewId()
         self.btnAdd = wx.BitmapButton(self.panel, add_id, bitmap=bmp)
@@ -101,9 +102,11 @@ class MainWindow(wx.Frame):
         ##############################################
         outer_sizer.Add(inout_sizer, 1, wx.ALL | wx.EXPAND, 10)
         outer_sizer.Add(folders_sizer, 2, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 10)
-        outer_sizer.Add(wx.StaticText(self.panel, wx.ID_ANY, 'ALT+A or D to Add or Delete '
-                                                             'folders, ALT+Up or Down arrow to '
-                                                             'move'), 0, wx.CENTER, 20)
+        outer_sizer.Add(wx.StaticText(self.panel,
+                                      wx.ID_ANY,
+                                      'F1 to Add, F2 to Delete folders, F3 or F4 to move')
+                        , 0,
+                        wx.CENTER, 20)
         outer_sizer.Add(buttons_sizer, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 10)
 
         #######################
@@ -115,17 +118,19 @@ class MainWindow(wx.Frame):
         self.Bind(wx.EVT_MENU, self.add_folder, id=add_id)
         self.Bind(wx.EVT_BUTTON, self.remove_folder, self.btnRem)
         self.Bind(wx.EVT_MENU, self.remove_folder, id=rem_id)
-        self.Bind(wx.EVT_BUTTON, self.folder_up, self.btnFolderUp)
-        self.Bind(wx.EVT_BUTTON, self.folder_down, self.btnFolderDown)
+        self.Bind(wx.EVT_BUTTON, self.folder_move, self.btnFolderUp)
+        self.Bind(wx.EVT_BUTTON, self.folder_move, self.btnFolderDown)
         self.Bind(wx.EVT_BUTTON, self.choose_src, src_choose)
         self.Bind(wx.EVT_BUTTON, self.choose_dest, destination_choose)
         self.Bind(wx.EVT_LISTBOX, self.listClicked, self.lstFolders)
-        self.Bind(wx.EVT_MENU, self.folder_up, id=up_id)
+        self.Bind(wx.EVT_MENU, self.folder_move, id=self.up_id)
+        self.Bind(wx.EVT_MENU, self.folder_move, id=self.down_id)
 
         self.ac_tbl = wx.AcceleratorTable([
-            (wx.ACCEL_ALT, ord('A'), add_id),
-            (wx.ACCEL_ALT, ord('M'), rem_id),
-            (wx.ACCEL_ALT, wx.WXK_UP, up_id)
+            (wx.ACCEL_NORMAL, wx.WXK_F1, add_id),
+            (wx.ACCEL_NORMAL, wx.WXK_F2, rem_id),
+            (wx.ACCEL_NORMAL, wx.WXK_F3, self.up_id),
+            (wx.ACCEL_NORMAL, wx.WXK_F4, self.down_id)
         ])
         self.SetAcceleratorTable(self.ac_tbl)
 
@@ -151,14 +156,45 @@ class MainWindow(wx.Frame):
         self.UpdateUI()
 
     def UpdateUI(self):
-        print(self.lstFolders.GetSelection())
+        """ Updates the 4 folder buttons, but the actions will be slightly
+        different depending on the number of items in the list, and if we have
+        one item selected or not
+        """
+        # If no items in the list
         if self.lstFolders.Count == 0:
             self.btnRem.Enable(False)
             self.btnFolderUp.Enable(False)
-            self.btnFolderDown.Enable(True)
+            self.btnFolderDown.Enable(False)
+
         elif self.lstFolders.Count == 1:
-            self.btnFolderUp.Enable(False)
-            self.btnFolderDown.Enable(True)
+            # Up and Down disabled, as you can't move one folder!
+            self.btnFolderDown.Enable(False)
+            self.btnRem.Enable(False)
+            if self.lstFolders.GetSelection() == -1:
+                # We do NOT have an item selected
+                self.btnRem.Enable(False)
+            else:
+                self.btnRem.Enable(True)
+
+        else:
+            # More than 1 item in the list
+            if self.lstFolders.GetSelection() == -1:
+                # We do NOT have an item selected
+                self.btnRem.Enable(False)
+                self.btnFolderDown.Enable(False)
+                self.btnFolderUp.Enable(False)
+            elif self.lstFolders.GetSelection() == 0:
+                self.btnRem.Enable(True)
+                self.btnFolderDown.Enable(True)
+                self.btnFolderUp.Enable(False)
+            elif self.lstFolders.GetSelection() == self.lstFolders.Count - 1:
+                self.btnRem.Enable(True)
+                self.btnFolderDown.Enable(False)
+                self.btnFolderUp.Enable(True)
+            else:
+                self.btnRem.Enable(True)
+                self.btnFolderDown.Enable(True)
+                self.btnFolderUp.Enable(True)
 
     def close_program(self, event):
         """ Exit """
@@ -174,14 +210,14 @@ class MainWindow(wx.Frame):
         new_folder = wx.TextEntryDialog(self.panel, 'Enter the folder name', 'Add New Folder')
         if new_folder.ShowModal() == wx.ID_OK:
             self.lstFolders.Append(new_folder.GetValue())
-            #self.lstFolders.SetSelection(self.lstFolders.Count-1)
+            # self.lstFolders.SetSelection(self.lstFolders.Count-1)
         self.UpdateUI()
             
     def remove_folder(self, event):
         """ remove folder """
         confirm = wx.MessageBox(
             f'Confirm you want to remove the folder ' 
-            f'{self.lstFolders.GetString(self.lstFolders.GetSelection())}?',
+            f'"{self.lstFolders.GetString(self.lstFolders.GetSelection())}" ?',
             'Confirm Deletion', wx.OK | wx.CANCEL | wx.ICON_EXCLAMATION)
         if confirm == wx.OK:
             self.lstFolders.Delete(self.lstFolders.GetSelection())
@@ -189,12 +225,18 @@ class MainWindow(wx.Frame):
                 self.lstFolders.SetSelection(self.lstFolders.Count - 1)
         self.UpdateUI()
         
-    def folder_up(self, event):
-        """ move folder up """
-        print('Folder up')
-
-    def folder_down(self, event):
-        """ move folder down """
+    def folder_move(self, event):
+        """
+        Swap the two folders over
+        :param event:
+        :return:
+        """
+        mv = -1 if event.GetId() == self.up_id else 1
+        sel = self.lstFolders.GetSelection()
+        sel_text = self.lstFolders.GetString(sel + mv)
+        self.lstFolders.SetString(sel + mv, self.lstFolders.GetString(sel))
+        self.lstFolders.SetString(sel, sel_text)
+        self.UpdateUI()
 
     def choose_src(self, event):
         """ Select the source folder
@@ -219,18 +261,4 @@ class MainWindow(wx.Frame):
         # self.UpdateUI()
 
     def listClicked(self, event):
-        sel = self.lstFolders.GetSelection()
-        self.btnRem.Enable(True)
-        if self.lstFolders.GetCount() > 1:
-            if sel == 0:
-                self.btnFolderUp.Enable(False)
-                self.btnFolderDown.Enable(True)
-            elif sel == self.lstFolders.GetCount() - 1:
-                self.btnFolderUp.Enable(True)
-                self.btnFolderDown.Enable(False)
-            else:
-                self.btnFolderUp.Enable(True)
-                self.btnFolderDown.Enable(True)
-        else:
-            self.btnFolderUp.Enable(False)
-            self.btnFolderDown.Enable(False)
+        self.UpdateUI()
