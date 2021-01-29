@@ -290,6 +290,8 @@ class MainWindow(wx.Frame):
                               style=wx.DD_DEFAULT_STYLE | wx.DD_NEW_DIR_BUTTON)
         if dialog.ShowModal() == wx.ID_OK:
             self.dest_text.SetValue(dialog.GetPath())
+        self.Config.destination = self.dest_text.GetValue()
+
         # self.UpdateUI()
 
     def listClicked(self, event):
