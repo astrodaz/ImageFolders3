@@ -1,4 +1,5 @@
 import wx
+from classes.class_config import AppConfig
 
 
 class MainWindow(wx.Frame):
@@ -6,6 +7,7 @@ class MainWindow(wx.Frame):
     def __init__(self, parent, title):
         super(MainWindow, self).__init__(parent, title=title, style=wx.DEFAULT_FRAME_STYLE)
 
+        self.Config = AppConfig()
         self.InitUI()
         self.Centre()
 
@@ -15,13 +17,26 @@ class MainWindow(wx.Frame):
         self.panel = wx.Panel(self)
         outer_sizer = wx.BoxSizer(wx.VERTICAL)
 
+        #######################
+        # Menu Bar and Settings
+        #######################
+        mnu_bar = wx.MenuBar()
+        file_menu = wx.Menu()
+        self.setup_id = wx.NewId()
+        file_menu.Append(self.setup_id, 'Settings\tF7')
+        self.quit_id = wx.NewId()
+        file_menu.Append(self.quit_id, '&Quit\tF8')
+
+        mnu_bar.Append(file_menu, '&File')
+        self.SetMenuBar(mnu_bar)
+
         ########################
         # Source and Destination
         ########################
-        src_label = wx.StaticText(self.panel, wx.ID_ANY, '&Source Folder', size=(100, -1),
+        src_label = wx.StaticText(self.panel, wx.ID_ANY, '&Source Folder', size=(150, -1),
                                   style=wx.ALIGN_RIGHT)
         self.src_text = wx.TextCtrl(self.panel, wx.ID_ANY)
-        dest_label = wx.StaticText(self.panel, wx.ID_ANY, 'Des&tination Folder', size=(100, -1),
+        dest_label = wx.StaticText(self.panel, wx.ID_ANY, 'Des&tination Folder', size=(150, -1),
                                    style=wx.ALIGN_RIGHT)
         self.dest_text = wx.TextCtrl(self.panel, wx.ID_ANY, size=(200, -1))
         src_choose = wx.Button(self.panel, wx.ID_ANY, '...', style=wx.BU_EXACTFIT)
@@ -64,11 +79,11 @@ class MainWindow(wx.Frame):
         self.down_id = wx.NewId()
         self.btnFolderDown = wx.BitmapButton(self.panel, self.down_id, bitmap=bmp)
         bmp = wx.ArtProvider.GetBitmap(wx.ART_PLUS, wx.ART_BUTTON, (16, 16))
-        add_id = wx.NewId()
-        self.btnAdd = wx.BitmapButton(self.panel, add_id, bitmap=bmp)
+        self.add_id = wx.NewId()
+        self.btnAdd = wx.BitmapButton(self.panel, self.add_id, bitmap=bmp)
         bmp = wx.ArtProvider.GetBitmap(wx.ART_MINUS, wx.ART_BUTTON, (16, 16))
-        rem_id = wx.NewId()
-        self.btnRem = wx.BitmapButton(self.panel, rem_id, bitmap=bmp)
+        self.rem_id = wx.NewId()
+        self.btnRem = wx.BitmapButton(self.panel, self.rem_id, bitmap=bmp)
 
         # These have a separate sizer so that the list control sizes properly
         # and the buttons can stack vertically
@@ -87,13 +102,15 @@ class MainWindow(wx.Frame):
         folders_sizer.Add(f_buttons_sizer, 0, wx.ALL, 5)
 
         ####################
-        # Run / Exit Buttons
+        # Save / Run / Exit Buttons
         ####################
         buttons_box = wx.StaticBox(self.panel, wx.ID_ANY)
         buttons_sizer = wx.StaticBoxSizer(buttons_box, wx.HORIZONTAL)
+        button_save = wx.Button(self.panel, wx.ID_ANY, 'Sa&ve')
         button_go = wx.Button(self.panel, wx.ID_ANY, '&Run')
         button_exit = wx.Button(self.panel, wx.ID_ANY, 'E&xit')
 
+        buttons_sizer.Add(button_save, 1, wx.ALL, 10)
         buttons_sizer.Add(button_go, 1, wx.ALL , 10)
         buttons_sizer.Add(button_exit, 1, wx.ALL , 10)
 
@@ -115,9 +132,9 @@ class MainWindow(wx.Frame):
         self.Bind(wx.EVT_BUTTON, self.close_program, button_exit)
         self.Bind(wx.EVT_BUTTON, self.run, button_go)
         self.Bind(wx.EVT_BUTTON, self.add_folder, self.btnAdd)
-        self.Bind(wx.EVT_MENU, self.add_folder, id=add_id)
+        self.Bind(wx.EVT_MENU, self.add_folder, id=self.add_id)
         self.Bind(wx.EVT_BUTTON, self.remove_folder, self.btnRem)
-        self.Bind(wx.EVT_MENU, self.remove_folder, id=rem_id)
+        self.Bind(wx.EVT_MENU, self.remove_folder, id=self.rem_id)
         self.Bind(wx.EVT_BUTTON, self.folder_move, self.btnFolderUp)
         self.Bind(wx.EVT_BUTTON, self.folder_move, self.btnFolderDown)
         self.Bind(wx.EVT_BUTTON, self.choose_src, src_choose)
@@ -125,12 +142,15 @@ class MainWindow(wx.Frame):
         self.Bind(wx.EVT_LISTBOX, self.listClicked, self.lstFolders)
         self.Bind(wx.EVT_MENU, self.folder_move, id=self.up_id)
         self.Bind(wx.EVT_MENU, self.folder_move, id=self.down_id)
+        self.Bind(wx.EVT_MENU, self.close_program, id=self.quit_id)
+        self.Bind(wx.EVT_BUTTON, self.save_folders, button_save)
 
         self.ac_tbl = wx.AcceleratorTable([
-            (wx.ACCEL_NORMAL, wx.WXK_F1, add_id),
-            (wx.ACCEL_NORMAL, wx.WXK_F2, rem_id),
+            (wx.ACCEL_NORMAL, wx.WXK_F1, self.add_id),
+            (wx.ACCEL_NORMAL, wx.WXK_F2, self.rem_id),
             (wx.ACCEL_NORMAL, wx.WXK_F3, self.up_id),
-            (wx.ACCEL_NORMAL, wx.WXK_F4, self.down_id)
+            (wx.ACCEL_NORMAL, wx.WXK_F7, self.setup_id),
+            (wx.ACCEL_NORMAL, wx.WXK_F8, self.quit_id)
         ])
         self.SetAcceleratorTable(self.ac_tbl)
 
@@ -152,7 +172,16 @@ class MainWindow(wx.Frame):
         """
         Load saved values from config
         """
-        self.lstFolders.Append('First')
+        if self.Config.is_default:
+            wx.MessageBox('No custom config found - default settings loaded', 'Default Config',
+                          wx.OK | wx.ICON_INFORMATION)
+        self.src_text.SetValue(self.Config.source)
+        self.dest_text.SetValue(self.Config.destination)
+
+        if len(self.Config.get_folders) == 0:
+            print('no folders')
+            """ Add Folder code here"""
+
         self.UpdateUI()
 
     def UpdateUI(self):
@@ -247,7 +276,10 @@ class MainWindow(wx.Frame):
                               style=wx.DD_DEFAULT_STYLE | wx.DD_NEW_DIR_BUTTON)
         if dialog.ShowModal() == wx.ID_OK:
             self.src_text.SetValue(dialog.GetPath())
-        # self.UpdateUI()
+        self.Config.source = self.src_text.GetValue()
+
+        # self.Config.save_folder(self.lstFolders.GetSelection(),
+        #                        self.lstFolders.GetString(self.lstFolders.GetSelection()))
 
     def choose_dest(self, event):
         """ Select the source folder
@@ -262,3 +294,18 @@ class MainWindow(wx.Frame):
 
     def listClicked(self, event):
         self.UpdateUI()
+
+    def settings(self, event):
+        """
+        Settings and options
+        :return:
+        """
+        print("Settings and options")
+
+    def save_folders(self, evtn):
+        """
+        Save the folders
+        :param evtn:
+        :return:
+        """
+        print("Saved")
