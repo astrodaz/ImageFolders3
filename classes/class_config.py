@@ -48,7 +48,6 @@ class AppConfig:
     @source.setter
     def source(self, src):
         self.__config['IN_OUT']['source'] = src
-        self.__save_config()
 
     @property
     def destination(self):
@@ -57,7 +56,6 @@ class AppConfig:
     @destination.setter
     def destination(self, dest):
         self.__config['IN_OUT']['destination'] = dest
-        self.__save_config()
 
     @property
     def is_default(self):
@@ -67,18 +65,26 @@ class AppConfig:
         if self.__config.has_option(key, value):
             return self.__config[key][value]
         else:
-            print(key, value)
             return 'ERROR'
 
-    def save_folder(self, option, value):
+    def add_new_folder(self, option, value):
         if not self.__config.has_section('FOLDERS'):
             self.__config.add_section('FOLDERS')
         self.__config['FOLDERS'][option] = value
-        self.__save_config()
 
+    def remove_folder(self, option):
+        if option is not None:
+            if option in self.__config['FOLDERS']:
+                self.__config['FOLDERS'].pop(option)
     @property
-    def get_folders(self):
+    def folders(self):
         if self.__config.has_section('FOLDERS'):
-            return list(self.__config.items('FOLDERS'))
+            lst = dict()
+            for opt, val in self.__config['FOLDERS'].items():
+                lst[opt] = val
+            return lst
         else:
             return ''
+
+    def save_values(self):
+        self.__save_config()

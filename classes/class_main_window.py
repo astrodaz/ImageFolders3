@@ -8,8 +8,11 @@ class MainWindow(wx.Frame):
         super(MainWindow, self).__init__(parent, title=title, style=wx.DEFAULT_FRAME_STYLE)
 
         self.Config = AppConfig()
+        self.Folders = dict()
+        self.DirtyState = False
         self.InitUI()
         self.Centre()
+
 
     def InitUI(self):
         """ Build the main window controls """
@@ -84,6 +87,9 @@ class MainWindow(wx.Frame):
         bmp = wx.ArtProvider.GetBitmap(wx.ART_MINUS, wx.ART_BUTTON, (16, 16))
         self.rem_id = wx.NewId()
         self.btnRem = wx.BitmapButton(self.panel, self.rem_id, bitmap=bmp)
+        bmp = wx.ArtProvider.GetBitmap(wx.ART_EDIT, wx.ART_BUTTON, (16, 16))
+        self.edit_id = wx.NewId()
+        self.btnEdit = wx.BitmapButton(self.panel, self.edit_id, bitmap=bmp)
 
         # These have a separate sizer so that the list control sizes properly
         # and the buttons can stack vertically
@@ -92,6 +98,7 @@ class MainWindow(wx.Frame):
         f_buttons_sizer.Add(self.btnRem, 0, wx.ALL, 5)
         f_buttons_sizer.Add(self.btnFolderUp, 0, wx.ALL, 5)
         f_buttons_sizer.Add(self.btnFolderDown, 0, wx.ALL, 5)
+        f_buttons_sizer.Add(self.btnEdit, 0, wx.ALL, 5)
 
         # The list control sizer
         list_folder_sizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -106,13 +113,13 @@ class MainWindow(wx.Frame):
         ####################
         buttons_box = wx.StaticBox(self.panel, wx.ID_ANY)
         buttons_sizer = wx.StaticBoxSizer(buttons_box, wx.HORIZONTAL)
-        button_save = wx.Button(self.panel, wx.ID_ANY, 'Sa&ve')
+        self.button_save = wx.Button(self.panel, wx.ID_ANY, 'Sa&ve')
         button_go = wx.Button(self.panel, wx.ID_ANY, '&Run')
         button_exit = wx.Button(self.panel, wx.ID_ANY, 'E&xit')
 
-        buttons_sizer.Add(button_save, 1, wx.ALL, 10)
-        buttons_sizer.Add(button_go, 1, wx.ALL , 10)
-        buttons_sizer.Add(button_exit, 1, wx.ALL , 10)
+        buttons_sizer.Add(self.button_save, 1, wx.ALL, 10)
+        buttons_sizer.Add(button_go, 1, wx.ALL, 10)
+        buttons_sizer.Add(button_exit, 1, wx.ALL, 10)
 
         ##############################################
         # Pack the outer sizer with the other 3 sizers
@@ -121,8 +128,7 @@ class MainWindow(wx.Frame):
         outer_sizer.Add(folders_sizer, 2, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 10)
         outer_sizer.Add(wx.StaticText(self.panel,
                                       wx.ID_ANY,
-                                      'F1 to Add, F2 to Delete folders, F3 or F4 to move')
-                        , 0,
+                                      'F1 to Add, F2 to Delete folders, F3 or F4 to move'), 0,
                         wx.CENTER, 20)
         outer_sizer.Add(buttons_sizer, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 10)
 
@@ -131,19 +137,20 @@ class MainWindow(wx.Frame):
         #######################
         self.Bind(wx.EVT_BUTTON, self.close_program, button_exit)
         self.Bind(wx.EVT_BUTTON, self.run, button_go)
+        self.Bind(wx.EVT_BUTTON, self.save_folders, self.button_save)
         self.Bind(wx.EVT_BUTTON, self.add_folder, self.btnAdd)
         self.Bind(wx.EVT_MENU, self.add_folder, id=self.add_id)
         self.Bind(wx.EVT_BUTTON, self.remove_folder, self.btnRem)
         self.Bind(wx.EVT_MENU, self.remove_folder, id=self.rem_id)
         self.Bind(wx.EVT_BUTTON, self.folder_move, self.btnFolderUp)
         self.Bind(wx.EVT_BUTTON, self.folder_move, self.btnFolderDown)
+        self.Bind(wx.EVT_BUTTON, self.folder_edit, self.btnEdit)
         self.Bind(wx.EVT_BUTTON, self.choose_src, src_choose)
         self.Bind(wx.EVT_BUTTON, self.choose_dest, destination_choose)
         self.Bind(wx.EVT_LISTBOX, self.listClicked, self.lstFolders)
         self.Bind(wx.EVT_MENU, self.folder_move, id=self.up_id)
         self.Bind(wx.EVT_MENU, self.folder_move, id=self.down_id)
         self.Bind(wx.EVT_MENU, self.close_program, id=self.quit_id)
-        self.Bind(wx.EVT_BUTTON, self.save_folders, button_save)
 
         self.ac_tbl = wx.AcceleratorTable([
             (wx.ACCEL_NORMAL, wx.WXK_F1, self.add_id),
@@ -167,6 +174,7 @@ class MainWindow(wx.Frame):
         self.btnRem.Enable(False)
         self.btnFolderDown.Enable(False)
         self.btnFolderUp.Enable(False)
+        self.button_save.Enable(False)
 
     def load_values(self):
         """
@@ -178,10 +186,16 @@ class MainWindow(wx.Frame):
         self.src_text.SetValue(self.Config.source)
         self.dest_text.SetValue(self.Config.destination)
 
-        if len(self.Config.get_folders) == 0:
-            print('no folders')
-            """ Add Folder code here"""
+        if len(self.Config.folders) > 0:
+            for option, folder in self.Config.folders.items():
+                self.lstFolders.Append(folder)
 
+        self.UpdateUI()
+
+    def save_folders(self, event):
+        """ Save the folders to the Config file"""
+        self.Config.save_values()
+        self.DirtyState = False
         self.UpdateUI()
 
     def UpdateUI(self):
@@ -189,6 +203,9 @@ class MainWindow(wx.Frame):
         different depending on the number of items in the list, and if we have
         one item selected or not
         """
+
+        self.button_save.Enable(self.DirtyState)
+
         # If no items in the list
         if self.lstFolders.Count == 0:
             self.btnRem.Enable(False)
@@ -212,22 +229,33 @@ class MainWindow(wx.Frame):
                 self.btnRem.Enable(False)
                 self.btnFolderDown.Enable(False)
                 self.btnFolderUp.Enable(False)
+                self.btnEdit.Enable(False)
             elif self.lstFolders.GetSelection() == 0:
                 self.btnRem.Enable(True)
                 self.btnFolderDown.Enable(True)
                 self.btnFolderUp.Enable(False)
+                self.btnEdit.Enable(True)
             elif self.lstFolders.GetSelection() == self.lstFolders.Count - 1:
                 self.btnRem.Enable(True)
                 self.btnFolderDown.Enable(False)
                 self.btnFolderUp.Enable(True)
+                self.btnEdit.Enable(True)
             else:
                 self.btnRem.Enable(True)
                 self.btnFolderDown.Enable(True)
                 self.btnFolderUp.Enable(True)
+                self.btnEdit.Enable(True)
 
     def close_program(self, event):
         """ Exit """
-        self.Close()
+        if not self.DirtyState:
+            self.Close()
+        else:
+            confirm = wx.MessageBox(
+                f'You have unsaved changes. Are you sure you want to exit ? ',
+                'Confirm Exit', wx.YES_NO | wx.ICON_QUESTION)
+            if confirm == wx.ID_YES:
+                self.Close()
 
     def run(self, event):
         """ Run """
@@ -239,7 +267,9 @@ class MainWindow(wx.Frame):
         new_folder = wx.TextEntryDialog(self.panel, 'Enter the folder name', 'Add New Folder')
         if new_folder.ShowModal() == wx.ID_OK:
             self.lstFolders.Append(new_folder.GetValue())
-            # self.lstFolders.SetSelection(self.lstFolders.Count-1)
+            self.Config.add_new_folder(str(self.lstFolders.FindString(new_folder.GetValue())),
+                                       new_folder.GetValue())
+        self.DirtyState = True
         self.UpdateUI()
             
     def remove_folder(self, event):
@@ -249,9 +279,10 @@ class MainWindow(wx.Frame):
             f'"{self.lstFolders.GetString(self.lstFolders.GetSelection())}" ?',
             'Confirm Deletion', wx.OK | wx.CANCEL | wx.ICON_EXCLAMATION)
         if confirm == wx.OK:
+            self.Config.remove_folder(str(self.lstFolders.GetSelection()))
             self.lstFolders.Delete(self.lstFolders.GetSelection())
-            if self.lstFolders.Count > 0:
-                self.lstFolders.SetSelection(self.lstFolders.Count - 1)
+
+        self.DirtyState = True
         self.UpdateUI()
         
     def folder_move(self, event):
@@ -264,7 +295,23 @@ class MainWindow(wx.Frame):
         sel = self.lstFolders.GetSelection()
         sel_text = self.lstFolders.GetString(sel + mv)
         self.lstFolders.SetString(sel + mv, self.lstFolders.GetString(sel))
+        self.Config.add_new_folder(str(sel + mv), self.lstFolders.GetString(sel))
         self.lstFolders.SetString(sel, sel_text)
+        self.Config.add_new_folder(str(sel), sel_text)
+        self.DirtyState = True
+        self.UpdateUI()
+
+    def folder_edit(self, event):
+        folder_text = self.lstFolders.GetString(self.lstFolders.GetSelection())
+        edit_text = wx.TextEntryDialog(self.panel,
+                                       message='Edit the folder name',
+                                       caption='Edit a Folder',
+                                       value=folder_text)
+        if edit_text.ShowModal() == wx.ID_OK:
+            self.lstFolders.SetString(self.lstFolders.GetSelection(), edit_text.GetValue())
+            self.Config.add_new_folder(str(self.lstFolders.GetSelection()), edit_text.GetValue())
+
+        self.DirtyState = True
         self.UpdateUI()
 
     def choose_src(self, event):
@@ -278,8 +325,8 @@ class MainWindow(wx.Frame):
             self.src_text.SetValue(dialog.GetPath())
         self.Config.source = self.src_text.GetValue()
 
-        # self.Config.save_folder(self.lstFolders.GetSelection(),
-        #                        self.lstFolders.GetString(self.lstFolders.GetSelection()))
+        self.DirtyState = True
+        self.UpdateUI()
 
     def choose_dest(self, event):
         """ Select the source folder
@@ -292,7 +339,8 @@ class MainWindow(wx.Frame):
             self.dest_text.SetValue(dialog.GetPath())
         self.Config.destination = self.dest_text.GetValue()
 
-        # self.UpdateUI()
+        self.DirtyState = True
+        self.UpdateUI()
 
     def listClicked(self, event):
         self.UpdateUI()
@@ -303,11 +351,3 @@ class MainWindow(wx.Frame):
         :return:
         """
         print("Settings and options")
-
-    def save_folders(self, evtn):
-        """
-        Save the folders
-        :param evtn:
-        :return:
-        """
-        print("Saved")

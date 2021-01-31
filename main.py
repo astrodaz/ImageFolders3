@@ -12,3 +12,8 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+
+# TODO create the settings frame and various options for that
+# TODO - FITS header keywords for Lights/Darks/Flats
+# TODO Swap the LKistBox for a Tree Controla nd rework to add roots/children
