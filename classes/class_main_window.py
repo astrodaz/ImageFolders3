@@ -1,5 +1,6 @@
 import wx
 from classes.class_config import AppConfig
+from classes.class_settings_frame import SettingsWindow
 
 
 class MainWindow(wx.Frame):
@@ -151,6 +152,7 @@ class MainWindow(wx.Frame):
         self.Bind(wx.EVT_MENU, self.folder_move, id=self.up_id)
         self.Bind(wx.EVT_MENU, self.folder_move, id=self.down_id)
         self.Bind(wx.EVT_MENU, self.close_program, id=self.quit_id)
+        self.Bind(wx.EVT_MENU, self.settings, id=self.setup_id)
 
         self.ac_tbl = wx.AcceleratorTable([
             (wx.ACCEL_NORMAL, wx.WXK_F1, self.add_id),
@@ -350,4 +352,5 @@ class MainWindow(wx.Frame):
         Settings and options
         :return:
         """
-        print("Settings and options")
+        settings = SettingsWindow(self)
+        settings.ShowModal()
